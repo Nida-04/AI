@@ -1,0 +1,55 @@
+# Import libraries
+import pandas as pd
+import numpy as np
+import nltk
+import string
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem.porter import PorterStemmer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import confusion_matrix, classification_report
+
+# Read the dataset
+data = pd.read_csv("amazon_alexa.tsv", sep="\t")
+# Remove null values
+data.dropna(inplace=True)
+
+# Preprocess the text data
+stop_words = set(stopwords.words("english"))
+porter = PorterStemmer()
+def preprocess_text(text):
+    tokens = word_tokenize(text.lower())
+    tokens = [token for token in tokens if token not in string.punctuation]
+    tokens = [token for token in tokens if token not in stop_words]
+    tokens = [porter.stem(token) for token in tokens]
+    return " ".join(tokens)
+data["processed_reviews"] = data["verified_reviews"].apply(preprocess_text)
+
+# Transform the text into vectors
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(data["processed_reviews"])
+y = data["feedback"]
+
+# Split data into training and test data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Train and test machine learning models
+models = {
+    "Multinomial Naive Bayes": MultinomialNB(),
+    "Logistic Regression": LogisticRegression(),
+    "KNN": KNeighborsClassifier()
+}
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    print(f"Model: {name}")
+    print(confusion_matrix(y_test, y_pred))
+    print(classification_report(y_test, y_pred))
+    print("-" * 50)
+
+# Choose the best model based on accuracy
+best_model = max(models, key=lambda x: models[x].score(X_test, y_test))
+print(f"Best model: {best_model}")
